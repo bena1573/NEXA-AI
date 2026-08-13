@@ -107,6 +107,20 @@ export const ticketUpdateSchema = z.object({
     assigneeId: z.string().uuid().nullish(),
 });
 
+export const businessSettingsSchema = z.object({
+    profile: businessProfileSchema,
+    hours: z.array(businessHourSchema).length(7),
+});
+
+export const changePasswordSchema = z.object({
+    currentPassword: z.string().min(1, 'Enter your current password.'),
+    newPassword: password,
+});
+
+export const memberRoleSchema = z.object({
+    role: z.enum(['OWNER', 'ADMIN', 'AGENT', 'VIEWER']),
+});
+
 export const inviteSchema = z.object({
     email,
     role: z.enum(['ADMIN', 'AGENT', 'VIEWER']),
