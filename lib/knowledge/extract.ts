@@ -26,6 +26,13 @@ export function htmlToText(html: string): string {
     );
 }
 
+const PRIVATE_HOST = /^(localhost|\[?::1\]?|0\.0\.0\.0|10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/i;
+
+/** Blocks the obvious SSRF targets: loopback, link-local and RFC1918 hosts. */
+export function isFetchableHost(hostname: string): boolean {
+    return !PRIVATE_HOST.test(hostname) && !hostname.endsWith('.internal') && !hostname.endsWith('.local');
+}
+
 export async function extractFromUrl(url: string, fetchImpl: typeof fetch = fetch): Promise<string> {
     let parsed: URL;
     try {
@@ -35,6 +42,9 @@ export async function extractFromUrl(url: string, fetchImpl: typeof fetch = fetc
     }
     if (!['http:', 'https:'].includes(parsed.protocol)) {
         throw new ExtractionError('Only http(s) URLs can be imported.');
+    }
+    if (!isFetchableHost(parsed.hostname)) {
+        throw new ExtractionError('That address is not publicly reachable, so it cannot be imported.');
     }
 
     const response = await fetchImpl(parsed.toString(), {
