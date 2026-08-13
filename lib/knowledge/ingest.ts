@@ -5,7 +5,6 @@ import type { BusinessContext } from '@/lib/db/tenant';
 import { chunkText } from '@/lib/knowledge/chunk';
 import { toVectorLiteral } from '@/lib/knowledge/vector';
 import { logger } from '@/lib/logger';
-import { recordUsage } from '@/lib/billing/usage';
 
 export type IngestInput = {
     title: string;
@@ -39,7 +38,6 @@ export async function ingestDocument(ctx: BusinessContext, input: IngestInput) {
             where: { id: document.id },
             data: { status: 'READY', chunkCount },
         });
-        await recordUsage(ctx.businessId, 'KNOWLEDGE_DOCUMENTS', 1);
         return ready;
     } catch (error) {
         logger.error('knowledge_ingest_failed', error);

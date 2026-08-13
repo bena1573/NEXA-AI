@@ -51,21 +51,28 @@ export function statusOf(plan: Plan, metric: UsageMetric, used: number): UsageSt
     };
 }
 
+/** Metered per month; the remaining metrics are gauges counted live. */
+const METERED: UsageMetric[] = ['CONVERSATIONS', 'VOICE_MINUTES', 'AI_TOKENS'];
+
 export async function usageSummary(businessId: string, plan: Plan): Promise<UsageStatus[]> {
-    const metrics: UsageMetric[] = [
-        'CONVERSATIONS', 'VOICE_MINUTES', 'AI_TOKENS', 'KNOWLEDGE_DOCUMENTS', 'TEAM_MEMBERS',
-    ];
-
     const period = periodStart();
-    const rows = await prisma.usageRecord.groupBy({
-        by: ['metric'],
-        where: { businessId, period },
-        _sum: { quantity: true },
-    });
+    const [rows, documents, members] = await Promise.all([
+        prisma.usageRecord.groupBy({
+            by: ['metric'],
+            where: { businessId, period, metric: { in: METERED } },
+            _sum: { quantity: true },
+        }),
+        prisma.knowledgeDocument.count({ where: { businessId } }),
+        prisma.membership.count({ where: { businessId } }),
+    ]);
 
-    return metrics.map(metric => statusOf(
-        plan,
-        metric,
-        rows.find(row => row.metric === metric)?._sum.quantity ?? 0,
-    ));
+    return [
+        ...METERED.map(metric => statusOf(
+            plan,
+            metric,
+            rows.find(row => row.metric === metric)?._sum.quantity ?? 0,
+        )),
+        statusOf(plan, 'KNOWLEDGE_DOCUMENTS', documents),
+        statusOf(plan, 'TEAM_MEMBERS', members),
+    ];
 }

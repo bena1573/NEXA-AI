@@ -2,20 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@layer base {
+    :root {
+        --background: 222 47% 6%;
+        --surface: 222 40% 9%;
+        --surface-raised: 222 34% 12%;
+        --border: 222 25% 20%;
+        --foreground: 210 40% 98%;
+        --muted: 217 15% 65%;
+        --primary: 175 84% 45%;
+        --primary-foreground: 222 47% 8%;
+        --accent: 258 90% 66%;
+        --danger: 0 72% 60%;
+        --warning: 38 92% 56%;
+        --success: 152 65% 45%;
+        --radius: 0.75rem;
+    }
+
+    * {
+        border-color: hsl(var(--border));
+    }
+
+    body {
+        background:
+            radial-gradient(60rem 40rem at 85% -10%, hsl(var(--accent) / 0.16), transparent 60%),
+            radial-gradient(50rem 30rem at 5% 0%, hsl(var(--primary) / 0.12), transparent 55%),
+            hsl(var(--background));
+        color: hsl(var(--foreground));
+        min-height: 100vh;
+    }
+
+    :focus-visible {
+        outline: 2px solid hsl(var(--primary));
+        outline-offset: 2px;
+    }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+@layer utilities {
+    .text-muted {
+        color: hsl(var(--muted));
+    }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+    .surface {
+        background-color: hsl(var(--surface) / 0.8);
+        border: 1px solid hsl(var(--border));
+        backdrop-filter: blur(12px);
+    }
 }
