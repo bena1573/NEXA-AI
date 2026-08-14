@@ -5,7 +5,7 @@ import { buildSystemPrompt, NO_ANSWER_REPLY } from '@/lib/ai/prompt';
 import { TOOL_SPECS } from '@/lib/ai/tools/registry';
 import { executeTool, type ToolResult } from '@/lib/ai/tools/execute';
 import type { ChatMessage } from '@/lib/ai/types';
-import { bestScore, retrieveKnowledge, RETRIEVAL_CONFIDENCE_FLOOR } from '@/lib/knowledge/search';
+import { bestScore, retrievalFloor, retrieveKnowledge } from '@/lib/knowledge/search';
 import { recordUsage } from '@/lib/billing/usage';
 import { logger } from '@/lib/logger';
 
@@ -116,7 +116,7 @@ export async function respondToMessage(options: {
 
     // Ungrounded answer with nothing retrieved and no tool evidence: refuse rather
     // than let the model improvise business facts.
-    const grounded = toolsUsed.length > 0 || retrievalScore >= RETRIEVAL_CONFIDENCE_FLOOR;
+    const grounded = toolsUsed.length > 0 || retrievalScore >= retrievalFloor();
     const content = (grounded && result.content.trim())
         ? result.content.trim()
         : NO_ANSWER_REPLY;

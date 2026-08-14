@@ -32,6 +32,7 @@ const INTENTS: IntentName[] = [
  */
 export class OpenAICompatibleProvider implements AIProvider {
     readonly id = 'openai' as const;
+    readonly similarityFloor = 0.35;
 
     constructor(
         private readonly apiKey: string,

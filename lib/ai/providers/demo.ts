@@ -9,7 +9,7 @@ import {
     type IntentName,
     type IntentResult,
 } from '@/lib/ai/types';
-import { keywordOverlap, sentences, tokenize, truncate } from '@/lib/ai/text';
+import { estimateTokens, keywordOverlap, sentences, tokenize, truncate } from '@/lib/ai/text';
 import { KNOWLEDGE_BLOCK_END, KNOWLEDGE_BLOCK_START, NO_ANSWER_REPLY } from '@/lib/ai/prompt';
 
 const INTENT_KEYWORDS: Array<{ intent: IntentName; words: string[] }> = [
@@ -27,17 +27,26 @@ const INTENT_KEYWORDS: Array<{ intent: IntentName; words: string[] }> = [
 const NEGATIVE_WORDS = ['angry', 'terrible', 'awful', 'unacceptable', 'worst', 'refund', 'complaint', 'broken', 'late', 'rude'];
 const POSITIVE_WORDS = ['thanks', 'thank', 'great', 'perfect', 'awesome', 'love', 'helpful', 'excellent'];
 
+/**
+ * Whole-word match. Substring matching would fire on words that merely contain a
+ * keyword — "implants" contains "plan", which would read as a pricing question.
+ */
+function mentions(text: string, words: Set<string>, keyword: string): boolean {
+    return keyword.includes(' ') ? text.includes(keyword) : words.has(keyword);
+}
+
 function detectIntent(text: string): IntentResult {
     const lower = text.toLowerCase();
+    const words = new Set(lower.replace(/[^a-z0-9\s'-]/g, ' ').split(/\s+/).filter(Boolean));
 
     let best: { intent: IntentName; hits: number } = { intent: 'GENERAL_QUESTION', hits: 0 };
-    for (const { intent, words } of INTENT_KEYWORDS) {
-        const hits = words.filter(word => lower.includes(word)).length;
+    for (const { intent, words: keywords } of INTENT_KEYWORDS) {
+        const hits = keywords.filter(keyword => mentions(lower, words, keyword)).length;
         if (hits > best.hits) best = { intent, hits };
     }
 
-    const negative = NEGATIVE_WORDS.filter(word => lower.includes(word)).length;
-    const positive = POSITIVE_WORDS.filter(word => lower.includes(word)).length;
+    const negative = NEGATIVE_WORDS.filter(word => mentions(lower, words, word)).length;
+    const positive = POSITIVE_WORDS.filter(word => mentions(lower, words, word)).length;
 
     return {
         intent: best.intent,
@@ -68,6 +77,17 @@ function orderReference(question: string): string | null {
 }
 
 const DAY_ORDER = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/**
+ * Estimated rather than measured, so usage dashboards and plan limits behave the
+ * same offline as they do against a hosted model.
+ */
+function usageFor(input: GenerateInput, content: string): { promptTokens: number; completionTokens: number } {
+    return {
+        promptTokens: input.messages.reduce((total, message) => total + estimateTokens(message.content), 0),
+        completionTokens: estimateTokens(content),
+    };
+}
 
 /** Turns a tool's JSON result into a sentence a customer can read. */
 function renderToolResult(name: string, raw: string): string {
@@ -141,6 +161,11 @@ function renderToolResult(name: string, raw: string): string {
  */
 export class DemoAIProvider implements AIProvider {
     readonly id = 'demo' as const;
+    /**
+     * Hashed bag-of-words vectors are sparse, so even a strong lexical match on a
+     * long chunk lands far below the scale of a semantic model.
+     */
+    readonly similarityFloor = 0.05;
 
     async generateResponse(input: GenerateInput): Promise<GenerateResult> {
         const question = lastUserMessage(input.messages);
@@ -154,6 +179,7 @@ export class DemoAIProvider implements AIProvider {
                 return {
                     content: '',
                     confidence: 0.8,
+                    usage: usageFor(input, ''),
                     toolCalls: [{
                         id: `demo-${wanted}-${toolResults.length}`,
                         name: wanted,
@@ -168,9 +194,11 @@ export class DemoAIProvider implements AIProvider {
                 .map(result => renderToolResult(result.name ?? '', result.content))
                 .filter(Boolean)
                 .join(' ');
+            const content = rendered.trim() || NO_ANSWER_REPLY;
             return {
-                content: rendered.trim() || NO_ANSWER_REPLY,
+                content,
                 confidence: 0.85,
+                usage: usageFor(input, content),
                 toolCalls: [],
             };
         }
@@ -182,7 +210,12 @@ export class DemoAIProvider implements AIProvider {
         const top = ranked[0];
 
         if (!top || top.score < 0.2) {
-            return { content: NO_ANSWER_REPLY, confidence: 0.2, toolCalls: [] };
+            return {
+                content: NO_ANSWER_REPLY,
+                confidence: 0.2,
+                usage: usageFor(input, NO_ANSWER_REPLY),
+                toolCalls: [],
+            };
         }
 
         const relevant = sentences(top.entry)
@@ -196,6 +229,7 @@ export class DemoAIProvider implements AIProvider {
         return {
             content: answer,
             confidence: Math.min(0.9, 0.45 + top.score / 2),
+            usage: usageFor(input, answer),
             toolCalls: [],
         };
     }

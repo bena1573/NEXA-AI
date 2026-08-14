@@ -6,8 +6,13 @@ import type { KnowledgeSnippet } from '@/lib/ai/prompt';
 
 export type RetrievedSnippet = KnowledgeSnippet & { score: number };
 
-/** Below this cosine score retrieval is treated as "no answer available". */
-export const RETRIEVAL_CONFIDENCE_FLOOR = 0.35;
+/** Below this keyword overlap an approved FAQ is not considered a match. */
+export const FAQ_MATCH_FLOOR = 0.35;
+
+/** Chunk matches are scored by the active embedding model, so it sets the floor. */
+export function retrievalFloor(): number {
+    return getAIProvider().similarityFloor;
+}
 
 type ChunkRow = { id: string; content: string; title: string; score: number };
 
@@ -45,7 +50,7 @@ async function searchFaqs(businessId: string, question: string, limit: number): 
             // comparable overlap.
             score: Math.min(1, keywordOverlap(question, faq.question) * 1.2),
         }))
-        .filter(snippet => snippet.score >= RETRIEVAL_CONFIDENCE_FLOOR)
+        .filter(snippet => snippet.score >= FAQ_MATCH_FLOOR)
         .sort((a, b) => b.score - a.score)
         .slice(0, limit);
 }
@@ -64,6 +69,7 @@ async function searchChunks(businessId: string, question: string, limit: number)
         LIMIT ${limit}
     `;
 
+    const floor = getAIProvider().similarityFloor;
     return rows
         .map(row => ({
             id: row.id,
@@ -71,7 +77,7 @@ async function searchChunks(businessId: string, question: string, limit: number)
             content: row.content,
             score: Number(row.score),
         }))
-        .filter(snippet => snippet.score >= RETRIEVAL_CONFIDENCE_FLOOR);
+        .filter(snippet => snippet.score >= floor);
 }
 
 export function bestScore(snippets: RetrievedSnippet[]): number {

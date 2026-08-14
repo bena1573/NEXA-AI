@@ -57,6 +57,7 @@ npm run dev
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Unit tests (Vitest) |
 | `npm run test:coverage` | Unit tests with coverage |
+| `npm run test:integration` | Integration tests (needs a migrated Postgres + pgvector database) |
 | `npm run db:migrate` | Create/apply migrations in development |
 | `npm run db:deploy` | Apply migrations in a deployed environment |
 | `npm run db:seed` | Load demo data |

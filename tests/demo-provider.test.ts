@@ -161,6 +161,30 @@ describe('demo provider classification', () => {
         });
     });
 
+    it('matches keywords as whole words, not substrings', async () => {
+        // "implants" contains "plan", "opening" contains "open".
+        await expect(ai.classifyIntent('Which alloy do you use for implants?')).resolves.toMatchObject({
+            intent: 'GENERAL_QUESTION',
+        });
+        await expect(ai.classifyIntent('What are your opening hours?')).resolves.toMatchObject({
+            intent: 'BUSINESS_HOURS',
+        });
+        await expect(ai.classifyIntent('How much does a plan cost?')).resolves.toMatchObject({
+            intent: 'PRICING',
+        });
+    });
+
+    it('reports estimated token usage so metering works offline', async () => {
+        const result = await ai.generateResponse({
+            messages: [
+                { role: 'system', content: systemPrompt([]) },
+                { role: 'user', content: 'Are you open on Sunday?' },
+            ],
+        });
+
+        expect(result.usage?.promptTokens).toBeGreaterThan(0);
+    });
+
     it('summarises a conversation and marks the fallback as unresolved', async () => {
         const summary = await ai.summarizeConversation([
             { role: 'user', content: 'Can I book a cleaning next week?' },

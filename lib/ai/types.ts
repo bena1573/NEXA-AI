@@ -65,6 +65,12 @@ export type ConversationSummary = {
 
 export interface AIProvider {
     readonly id: 'demo' | 'openai';
+    /**
+     * Cosine score below which a chunk match counts as "no answer". It belongs to
+     * the provider because embedding families put useful matches on different
+     * scales — a hosted semantic model and the offline lexical one do not agree.
+     */
+    readonly similarityFloor: number;
     generateResponse(input: GenerateInput): Promise<GenerateResult>;
     generateEmbedding(text: string): Promise<number[]>;
     classifyIntent(text: string): Promise<IntentResult>;

@@ -9,7 +9,9 @@ export default defineConfig({
     },
     test: {
         environment: 'node',
-        include: ['tests/**/*.test.ts'],
+        // Integration tests need a Postgres+pgvector database and run separately
+        // via `npm run test:integration`.
+        include: ['tests/*.test.ts'],
         coverage: {
             include: ['lib/**/*.ts'],
             reporter: ['text', 'lcov'],
